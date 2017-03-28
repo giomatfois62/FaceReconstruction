@@ -69,7 +69,7 @@ void Fastm::initialize(QVector<Vertex> &vertices, QVector<QList<unsigned int>> &
     for(int i=0; i<vertices.size(); i++)
     {
         Alive.push_back(false);
-        vertices[i].position.setZ(5000);
+        vertices[i].position.setZ(2);
     }
 
     // set starting point depth to zero

@@ -23,7 +23,7 @@ void main()
 {
     vec3 normalVector = normalize(Normal);
     vec3 rgb_normal = normalVector*.5 +.5;
-    vec3 albedo = vec3(ourColor.x/255.0,ourColor.x/255.0,ourColor.x/255.0);
+    vec3 albedo = vec3(ourColor.x,ourColor.x,ourColor.x);
     vec3 shadows = vec3(ourColor.y,ourColor.y,ourColor.y);
     float error = ourColor.z;
 

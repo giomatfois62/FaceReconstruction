@@ -252,9 +252,9 @@ void Shapefs::loadSfsData(QVector<QVector<float> > &intensities, QVector<QVector
             {
                 int k = mesh->vertices()[j].texCoords.y();
                 int l = mesh->vertices()[j].texCoords.x();
-                float I0 = frame.at<uchar>(k,l) ;
-                //float I0 = ( frame.at<uchar>(k+1,l) + frame.at<uchar>(k-1,l) + frame.at<uchar>(k,l+1) + frame.at<uchar>(k,l-1)  )/4.0;
-                intensities[j].push_back(I0);
+                //float I0 = frame.at<uchar>(k,l) ;
+                float I0 = ( frame.at<uchar>(k+1,l) + frame.at<uchar>(k-1,l) + frame.at<uchar>(k,l+1) + frame.at<uchar>(k,l-1)  )/4.0;
+                intensities[j].push_back(I0/255.0);
             }
         }
     }
@@ -266,17 +266,18 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
     if(!intensities.size())
         return;
 
-    //qDebug() << "started";
+
     // build and invert linear system matrix only once
     QMatrix3x3 matrix = buildSystemMatrix(lightDirections);
     invertQMatrix3x3_QR(matrix);
-
     //qDebug() << "systemBuilded";
 
     // solve linear system for each vertex and store computed normal and color
     QVector<Vertex> vertices = mesh->vertices();
     for(int i=0; i< vertices.size(); i++)
     {
+        //qDebug() << "started";
+
 
         // solve system once with all images available
         QVector3D data = buildSystemData(intensities[i],lightDirections);
@@ -285,12 +286,17 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
 
 
         float albedo = normal.length();
-        if(albedo>255)
-            albedo = 255;
+        if(albedo>1)
+            albedo = 1;
         normal.normalize();
+
+        if(normal == QVector3D(0,0,0))
+            normal = QVector3D(0,0,1);
 
         vertices[i].color=QVector3D(albedo,albedo,albedo);
         vertices[i].normal=normal;
+        //qDebug() << "albedo:"<<albedo<<" normale:"<<normal;
+
 
         if(m_filterType == "none")
         {
@@ -335,8 +341,8 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
             normal = newNormal;
             albedo = normal.length();
 
-            if(albedo>255)
-                albedo = 255;
+            if(albedo>1)
+                albedo = 1;
             normal.normalize();
 
             float perror=0;
@@ -348,6 +354,7 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
 
             vertices[i].color=QVector3D(albedo, newIntensities.size()/float(intensities[i].size()), perror/.2);
             vertices[i].normal=normal;
+
         }
 
 
@@ -365,12 +372,12 @@ QMatrix3x3 Shapefs::buildSystemMatrix(QVector<QVector3D> &lightsVec)
 
     for(int j=0; j< lightsVec.size(); j++)
     {
-        LS(0,0) += lightsVec[j].x()*lightsVec[j].x();
-        LS(0,1) += lightsVec[j].x()*lightsVec[j].y();
-        LS(0,2) += lightsVec[j].x()*lightsVec[j].z();
-        LS(1,1) += lightsVec[j].y()*lightsVec[j].y();
-        LS(1,2) += lightsVec[j].y()*lightsVec[j].z();
-        LS(2,2) += lightsVec[j].z()*lightsVec[j].z();
+        LS(0,0) += lightsVec[j].x()*lightsVec[j].x() ;
+        LS(0,1) += lightsVec[j].x()*lightsVec[j].y() ;
+        LS(0,2) += lightsVec[j].x()*lightsVec[j].z() ;
+        LS(1,1) += lightsVec[j].y()*lightsVec[j].y() ;
+        LS(1,2) += lightsVec[j].y()*lightsVec[j].z() ;
+        LS(2,2) += lightsVec[j].z()*lightsVec[j].z() ;
     }
 
     LS(1,0) = LS(0,1);
@@ -387,9 +394,9 @@ QVector3D Shapefs::buildSystemData(QVector<float> &intensityMap, QVector<QVector
     for(int j=0; j< intensityMap.size(); j++)
     {
         float I0 = intensityMap[j];
-        data[0] += lightsVec[j].x()*I0;
-        data[1] += lightsVec[j].y()*I0;
-        data[2] += lightsVec[j].z()*I0;
+        data[0] += lightsVec[j].x()*I0 ;
+        data[1] += lightsVec[j].y()*I0 ;
+        data[2] += lightsVec[j].z()*I0 ;
     }
 
     return data;

@@ -150,7 +150,7 @@ QVector<QVector2D> Facedet::getLandmarks(cv::Mat &frame)
 
     //if(imgPts.rows == 7)
     qDebug() << "rvec before: "<< rvec.at<float>(0,0) <<" "<< rvec.at<float>(1,0) << " "<<rvec.at<float>(2,0);
-    solvePnP(modelPts,imgPts,camMatrix,cv::Mat(1,4,CV_64FC1,_dc),rvec,tvec);//,false,CV_EPNP);
+    //solvePnP(modelPts,imgPts,camMatrix,cv::Mat(1,4,CV_64FC1,_dc),rvec,tvec);//,false,CV_EPNP);
     qDebug() << "rvec after: "<< rvec.at<double>(0,0) <<" "<< rvec.at<double>(1,0) << " "<<rvec.at<double>(2,0);
 
     // adjust x rotation

@@ -32,14 +32,50 @@ Mesh::Mesh(QVector<Vertex> &vertices, QVector<unsigned int> &indices)
 
 Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
 {
+
+    QVector<QVector2D> resized_landmarks = landmarks;
+
+    double amin = std::numeric_limits<double>::max();
+    double amax = std::numeric_limits<double>::min();
+    QVector2D minDimension(amin,amin);
+    QVector2D maxDimension(amax,amax);
+
+    for(int i=0; i<landmarks.size(); i++)
+    {
+        QVector2D vec = landmarks[i];
+        if(vec.x() < minDimension.x())
+            minDimension.setX(vec.x());
+        if(vec.y() < minDimension.y())
+            minDimension.setY(vec.y());
+        if(vec.x() > maxDimension.x())
+            maxDimension.setX(vec.x());
+        if(vec.y() > maxDimension.y())
+            maxDimension.setY(vec.y());
+    }
+
+    // Calculate scale and translation needed to center and fit on screen
+    //float dist = qMax(maxDimension.x() - minDimension.x(), maxDimension.y()-minDimension.y(), maxDimension.z() - minDimension.z());
+
+    // Calculate scale and translation needed to center and fit on screen
+    float scale1 = (480.0-landmarks[30].y())/(maxDimension.y()-landmarks[30].y());
+    float scale2 = (landmarks[30].y())/(landmarks[30].y()-minDimension.y());
+    float scale = qMin(scale1,scale2);
+    QVector2D center(landmarks[30]);
+    for(int i=0; i<landmarks.size();i++)
+        resized_landmarks[i] = (landmarks[i] - center)*scale + center;
+
+
     QVector<Vertex> vertices;
     for(int i=0; i<landmarks.size(); i++)
     {
         Vertex v;
+        //if(i<28)
+        //    v.position = QVector3D(landmarks[i].x(),landmarks[i].y(),2.0*dist);
+        //else
         v.position = QVector3D(landmarks[i]);
         v.normal = QVector3D(0,0,1);
         v.color = QVector3D(0,0,0);
-        v.texCoords = landmarks[i];
+        v.texCoords = resized_landmarks[i];
         vertices.push_back(v);
     }
 
@@ -281,6 +317,8 @@ void Mesh::buildNeighbours()
 
 void Mesh::subdivide(int sub)
 {
+
+
     for(int i=0; i< sub; i++)
     {
         // lookup table to keep track of subdivided edges
@@ -532,6 +570,7 @@ void Mesh::scaleToUnity()
     float dist = qMax(maxDimension.x() - minDimension.x(), qMax(maxDimension.y()-minDimension.y(), maxDimension.z() - minDimension.z()));
     float scale = 1.0/dist;
     QVector3D center = (maxDimension - minDimension)/2;
+    //QVector3D center = m_vertices[30].position;
     QVector3D translation = -(maxDimension - center);
     //qDebug() << "translation: "<<translation<<" scale: "<<scale;
 

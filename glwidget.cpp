@@ -10,7 +10,7 @@ void GLWidget::initializeGL()
 {
     initializeOpenGLFunctions();
     glClearColor(0.9f,0.9f,1.0f,10.f);
-    shader.compile("../Renderer/shader.vert","../Renderer/shader.frag");
+    shader.compile("../FaceReconstruction/shader.vert","../FaceReconstruction/shader.frag");
 
     light = QVector3D(0,0,1);
 
