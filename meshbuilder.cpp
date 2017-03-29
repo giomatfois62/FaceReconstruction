@@ -3,7 +3,7 @@
 
 MeshBuilder::MeshBuilder(QWidget *parent) : QWidget(parent)
 {
-    m_subdivNum = 4;
+    m_subdivNum = 6;
 
     detector = new Facedet;
     imageViewer = new WebcamWidget(detector);

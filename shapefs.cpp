@@ -252,8 +252,8 @@ void Shapefs::loadSfsData(QVector<QVector<float> > &intensities, QVector<QVector
             {
                 int k = mesh->vertices()[j].texCoords.y();
                 int l = mesh->vertices()[j].texCoords.x();
-                //float I0 = frame.at<uchar>(k,l) ;
-                float I0 = ( frame.at<uchar>(k+1,l) + frame.at<uchar>(k-1,l) + frame.at<uchar>(k,l+1) + frame.at<uchar>(k,l-1)  )/4.0;
+                float I0 = frame.at<uchar>(k,l) ;
+                //float I0 = ( frame.at<uchar>(k+1,l) + frame.at<uchar>(k-1,l) + frame.at<uchar>(k,l+1) + frame.at<uchar>(k,l-1)  )/4.0;
                 intensities[j].push_back(I0/255.0);
             }
         }

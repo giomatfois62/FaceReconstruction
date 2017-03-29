@@ -50,6 +50,8 @@ public slots:
     void drawShadows();
     void drawError();
     void drawWireframe();
+    void drawCustom();
+    void savePic();
 
 private:
     void printContext();
@@ -67,6 +69,7 @@ private:
     bool m_drawShadows = false;
     bool m_drawError = false;
     bool m_drawWireframe = false;
+    bool m_drawCustom = false;
 };
 
 #endif // GLWIDGET_H

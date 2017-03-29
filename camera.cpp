@@ -24,7 +24,7 @@ void Camera::updateProjection()
     _projection.setToIdentity();
     _projection.perspective( _zoom,         // field of vision
                              _aspect,     // aspect ratio
-                             0.01f,          // near clipping plane
-                             1000.0f);       // far clipping plane*/
+                             0.0001f,          // near clipping plane
+                             10.0f);       // far clipping plane*/
 
 }

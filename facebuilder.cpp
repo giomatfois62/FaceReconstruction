@@ -2,7 +2,7 @@
 
 Facebuilder::Facebuilder(QWidget *parent) : QWidget(parent)
 {
-    _subdivNum = 4;
+    _subdivNum = 6;
 
     detector = new Facedet;
 

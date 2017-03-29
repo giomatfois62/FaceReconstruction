@@ -64,6 +64,36 @@ Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
     for(int i=0; i<landmarks.size();i++)
         resized_landmarks[i] = (landmarks[i] - center)*scale + center;
 
+    for(int i=0; i<resized_landmarks.size(); i++)
+    {
+        QVector2D vec = resized_landmarks[i];
+        if(vec.x() < minDimension.x())
+            minDimension.setX(vec.x());
+        if(vec.y() < minDimension.y())
+            minDimension.setY(vec.y());
+        if(vec.x() > maxDimension.x())
+            maxDimension.setX(vec.x());
+        if(vec.y() > maxDimension.y())
+            maxDimension.setY(vec.y());
+    }
+
+    for(int i=0; i<5; i++)
+        resized_landmarks[i].setX( minDimension.x() );
+    resized_landmarks[5].setX( minDimension.x() );
+    resized_landmarks[5].setY( maxDimension.y() );
+    for(int i=6; i<11; i++)
+        resized_landmarks[i].setY( maxDimension.y() );
+    resized_landmarks[11].setX( maxDimension.x() );
+    resized_landmarks[11].setY( maxDimension.y() );
+    for(int i=12; i<17; i++)
+        resized_landmarks[i].setX( maxDimension.x() );
+    resized_landmarks[17].setX( minDimension.x() );
+    resized_landmarks[17].setY( minDimension.y() );
+    for(int i=18; i<26; i++)
+        resized_landmarks[i].setY( minDimension.y() );
+    resized_landmarks[26].setX( maxDimension.x() );
+    resized_landmarks[26].setY( minDimension.y() );
+
 
     QVector<Vertex> vertices;
     for(int i=0; i<landmarks.size(); i++)
@@ -72,7 +102,7 @@ Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
         //if(i<28)
         //    v.position = QVector3D(landmarks[i].x(),landmarks[i].y(),2.0*dist);
         //else
-        v.position = QVector3D(landmarks[i]);
+        v.position = QVector3D(resized_landmarks[i]);
         v.normal = QVector3D(0,0,1);
         v.color = QVector3D(0,0,0);
         v.texCoords = resized_landmarks[i];
@@ -80,7 +110,7 @@ Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
     }
 
     QVector<unsigned int> indices;
-    QVecOperator::load(indices,"../simpleIndices_original");
+    QVecOperator::load(indices,"../simpleIndices_corrected");
 
     m_vertices.swap(vertices);
     m_indices.swap(indices);

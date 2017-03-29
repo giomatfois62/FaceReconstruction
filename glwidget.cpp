@@ -1,4 +1,6 @@
 #include "glwidget.h"
+#include <QFileDialog>
+//#include <QImage>
 
 GLWidget::GLWidget(QWidget *parent): QOpenGLWidget(parent)
 {
@@ -10,7 +12,7 @@ void GLWidget::initializeGL()
 {
     initializeOpenGLFunctions();
     glClearColor(0.9f,0.9f,1.0f,10.f);
-    shader.compile("../FaceReconstruction/shader.vert","../FaceReconstruction/shader.frag");
+    shader.compile("../Renderer/shader.vert","../Renderer/shader.frag");
 
     light = QVector3D(0,0,1);
 
@@ -32,9 +34,10 @@ void GLWidget::paintGL()
 }
 
 
-
 void GLWidget::renderScene()
 {
+
+    //drawLambert();
     shader.program.bind();
     shader.program.setUniformValue("projectionMatrix",camera.projection());
     shader.program.setUniformValue("viewMatrix",camera.view());
@@ -47,13 +50,21 @@ void GLWidget::renderScene()
     shader.program.setUniformValue("dispalbonly",m_drawColors);
     shader.program.setUniformValue("disperror",m_drawError);
     shader.program.setUniformValue("dispshadow",m_drawShadows);
+    shader.program.setUniformValue("dispcust",m_drawCustom);
+
+    glEnable(GL_DEPTH_TEST);
+
+    //glDepthMask(true);
+    //glDepthFunc(GL_LEQUAL);
+    //  glEnable(GL_CULL_FACE);
 
 
-    if(m_drawWireframe)
-        glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
-    else
-        glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+    //if(m_drawWireframe)
+    //    glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+    //else
+    //    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 
+    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
     QMap<QString,Mesh>::iterator it=meshes.begin();
     while(it!=meshes.end())
     {
@@ -64,9 +75,67 @@ void GLWidget::renderScene()
         shader.program.setUniformValue("N",normalMatrix);
         shader.program.setUniformValue("MVP",MVP);
 
-        glEnable(GL_DEPTH_TEST);
+
         it.value().draw(shader);
         it++;
+    }
+
+
+    // Draw black outline
+    if(m_drawWireframe)
+    {
+        glPolygonOffset(-1.0f, -1.0f);      // Shift depth values
+        glEnable(GL_POLYGON_OFFSET_LINE);
+
+        // Draw lines antialiased
+        glEnable(GL_LINE_SMOOTH);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Draw black wireframe version of geometry
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glLineWidth(12.5f);
+        // draw wireframe on top of mesh
+        //drawShadows();
+
+        shader.program.setUniformValue("disptex",false);
+        shader.program.setUniformValue("disptexnorm",false);
+        shader.program.setUniformValue("dispnorm",false);
+        shader.program.setUniformValue("dispalb",false);
+        shader.program.setUniformValue("dispalbonly",false);
+        shader.program.setUniformValue("disperror",false);
+        shader.program.setUniformValue("dispshadow",true);
+        shader.program.setUniformValue("dispcust",false);
+        //glEnable(GL_DEPTH_TEST);
+        //glDepthMask(false);
+
+        //glPolygonMode(GL_BACK,GL_LINE);
+        //glLineWidth(5);
+        //glEnable( GL_POLYGON_OFFSET_LINE );
+        //glPolygonOffset( -1, -1 );
+        QMap<QString,Mesh>::iterator it2=meshes.begin();
+        while(it2!=meshes.end())
+        {
+            QMatrix4x4 modelViewMatrix = camera.view() * it2.value().modelMatrix;
+            QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
+            QMatrix4x4 MVP = camera.projection() * modelViewMatrix;
+
+            shader.program.setUniformValue("N",normalMatrix);
+            shader.program.setUniformValue("MVP",MVP);
+
+
+            it2.value().draw(shader);
+            it2++;
+        }
+        //glDisable( GL_POLYGON_OFFSET_LINE );
+        //drawLambert();
+        //glDepthMask(true);
+
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDisable(GL_POLYGON_OFFSET_LINE);
+        glLineWidth(1.0f);
+        glDisable(GL_BLEND);
+        glDisable(GL_LINE_SMOOTH);
     }
 }
 
@@ -187,7 +256,7 @@ void GLWidget::controlLight()
 void GLWidget::drawTexture()
 {
     m_drawTexture = true;
-
+    m_drawCustom = false;
     m_drawTextureLambert = false;
     m_drawNormals = false;
     m_drawColors = false;
@@ -199,7 +268,7 @@ void GLWidget::drawTexture()
 void GLWidget::drawTextureLambert()
 {
     m_drawTextureLambert = true;
-
+   m_drawCustom = false;
     m_drawTexture = false;
     m_drawNormals = false;
     m_drawColors = false;
@@ -211,7 +280,7 @@ void GLWidget::drawTextureLambert()
 void GLWidget::drawNormals()
 {
     m_drawNormals = true;
-
+    m_drawCustom = false;
     m_drawTexture = false;
     m_drawTextureLambert = false;
     m_drawColors = false;
@@ -223,7 +292,7 @@ void GLWidget::drawNormals()
 void GLWidget::drawColors()
 {
     m_drawColors = true;
-
+   m_drawCustom = false;
     m_drawNormals = false;
     m_drawTexture = false;
     m_drawTextureLambert = false;
@@ -235,7 +304,7 @@ void GLWidget::drawColors()
 void GLWidget::drawLambert()
 {
     m_drawLambert = true;
-
+   m_drawCustom = false;
     m_drawColors = false;
     m_drawNormals = false;
     m_drawTexture = false;
@@ -247,7 +316,7 @@ void GLWidget::drawLambert()
 void GLWidget::drawShadows()
 {
     m_drawShadows = true;
-
+   m_drawCustom = false;
     m_drawLambert = false;
     m_drawColors = false;
     m_drawNormals = false;
@@ -259,7 +328,7 @@ void GLWidget::drawShadows()
 void GLWidget::drawError()
 {
     m_drawError = true;
-
+    m_drawCustom = false;
     m_drawLambert = false;
     m_drawColors = false;
     m_drawNormals = false;
@@ -271,6 +340,35 @@ void GLWidget::drawError()
 void GLWidget::drawWireframe()
 {
     m_drawWireframe = !m_drawWireframe;
+}
+
+void GLWidget::drawCustom()
+{
+    m_drawError = false;
+    m_drawCustom = true;
+    m_drawLambert = false;
+    m_drawColors = false;
+    m_drawNormals = false;
+    m_drawTexture = false;
+    m_drawTextureLambert = false;
+    m_drawShadows = false;
+}
+
+void GLWidget::savePic()
+{
+    QString file = QFileDialog::getSaveFileName(this, "Save as...", "name", "PNG (*.png);; BMP (*.bmp);;TIFF (*.tiff *.tif);; JPEG (*.jpg *.jpeg)");
+    //this->grabFramebuffer().save(file);
+
+    QImage img = this->grabFramebuffer();
+    qDebug() << "image grabbed! size "<<img.size();
+    bool success = img.save(file);
+    if(success)
+        qDebug() << "image saved!";
+    else
+        qDebug() << "image NOT saved :(";
+    //QPainter painter(&img);
+    //this->render(&painter);
+    //img.save("/home/mat/file.jpg");
 }
 
 
@@ -302,8 +400,14 @@ QGroupBox* GLWidget::displayMenu()
    QPushButton *errorBtm = new QPushButton("p-errors");
    connect(errorBtm,SIGNAL(pressed()),this,SLOT(drawError()));
 
+   QPushButton *customBtm = new QPushButton("red");
+   connect(customBtm,SIGNAL(pressed()),this,SLOT(drawCustom()));
+
    QPushButton *lightBtm = new QPushButton("moveLight");
    connect(lightBtm,SIGNAL(pressed()),this,SLOT(controlLight()));
+
+   QPushButton *savePicBtm = new QPushButton("savePic");
+   connect(savePicBtm,SIGNAL(pressed()),this,SLOT(savePic()));
 
    QGridLayout *menuLayout = new QGridLayout;
    menuLayout->addWidget(wireBtm,0,0);
@@ -315,6 +419,8 @@ QGroupBox* GLWidget::displayMenu()
    menuLayout->addWidget(normBtm,3,0);
    menuLayout->addWidget(shadowBtm,3,1);
    menuLayout->addWidget(errorBtm,4,0);
+   menuLayout->addWidget(savePicBtm,4,1);
+   menuLayout->addWidget(customBtm,5,0);
 
    m_menu->setLayout(menuLayout);
    m_menu->setSizePolicy(QSizePolicy( QSizePolicy::Fixed,QSizePolicy::Fixed));

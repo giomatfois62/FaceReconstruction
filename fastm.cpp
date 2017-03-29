@@ -3,7 +3,7 @@
 Fastm::Fastm(Mesh &pmesh, QWidget *parent): QWidget(parent)
 {
     mesh = &pmesh;
-    m_lambda = 1;
+    m_lambda = 2;
     m_initialPoint = 30;
 }
 
