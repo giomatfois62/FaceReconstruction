@@ -10,7 +10,7 @@
 
 #include "mesh.h"
 #include "webcamwidget.h"
-#include "facedet.h"
+#include "facedetector.h"
 
 #include "fastm.h"
 #include "shapefs.h"
@@ -23,8 +23,7 @@ public:
     explicit MeshBuilder(QWidget *parent = 0);
     ~MeshBuilder();
 
-
-    Mesh mesh;
+    Mesh m_mesh;
 
     GLWidget *meshViewer;
     WebcamWidget *imageViewer;
@@ -37,20 +36,33 @@ public:
     QGroupBox* menu();
 
     int subdivNum() { return m_subdivNum; }
+    float edgeTol() {return m_edgeTol; }
+    QString subdivType() {return m_subdivType;}
 
 signals:
 
 public slots:
     void buildMesh();
+    void convertToNonAdaptive();
     void saveMesh();
     void loadMesh();
     void applyTexture();
     void setSubdivNum(int val) {m_subdivNum = val;}
+    void setEdgeTolerance(double val) {m_edgeTol = val;}
+    void setSubdivType(QString val) {m_subdivType = val;}
+    void setGridType(QString val) {m_gridType = val;}
     void updateMesh();
 
 private:
-    int m_subdivNum;
+    Mesh buildMeshFromFace();
+    Mesh buildMeshFromImage();
 
+    bool findMatchingTriangle(QVector3D p, float barCoords[3], unsigned int &firstIndex);
+
+    int m_subdivNum;
+    float m_edgeTol;
+    QString m_subdivType;
+    QString m_gridType;
 };
 
 #endif // MESHBUILDER_H

@@ -44,7 +44,6 @@ HEADERS += \
     fastm.h \
     recorder.h \
     facebuilder.h \
-    facedet.h \
     mainwindow.h \
     glwidget.h \
     webcamwidget.h \
@@ -54,7 +53,8 @@ HEADERS += \
     pstereowidget.h \
     fastmarchingwidget.h \
     facedatabasewidget.h \
-    meshbuilder.h
+    meshbuilder.h \
+    facedetector.h
 
 DISTFILES += \
     shader.frag \

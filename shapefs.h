@@ -5,7 +5,7 @@
 
 #include "mesh.h"
 #include "facedatabasewidget.h"
-#include "facedet.h"
+#include "facedetector.h"
 
 #include <QVector>
 #include <QVector2D>
@@ -58,6 +58,7 @@ public slots:
     void setMaxElevation(int value) {m_maxElevation=value; }
     // actions
     void execPhotometric();
+    void execPhotometricSVD();
     void estimateLightDirection(cv::Mat &img, QVector4D &light);
 
 signals:
@@ -66,6 +67,7 @@ signals:
 private:
     Mesh *mesh;
     Facedet *detector;
+
     // threshold for treating shadows and specularities
     float m_threshold;
     // filter type (shadow, pError, none)
@@ -83,6 +85,9 @@ private:
                      QVector<QVector3D> &lightDirections);
     void execPS(QVector<QVector<float>> &intensities,
                 QVector<QVector3D> &lightDirections);
+
+    void execPS_SVD(QVector<QVector<float>> &intensities,
+                    QVector<QVector3D> &lightDirections);
 
     // build and solve photometric Stereo linear system
     QMatrix3x3 buildSystemMatrix(QVector<QVector3D> &lightDirections);

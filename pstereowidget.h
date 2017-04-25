@@ -13,7 +13,7 @@
 
 #include "shapefs.h"
 #include "facedatabase.h"
-#include "facedet.h"
+#include "facedetector.h"
 
 class PStereoWidget : public QWidget
 {

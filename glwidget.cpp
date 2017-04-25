@@ -1,10 +1,39 @@
 #include "glwidget.h"
 #include <QFileDialog>
+#include <QComboBox>
 //#include <QImage>
 
 GLWidget::GLWidget(QWidget *parent): QOpenGLWidget(parent)
 {
     this->setMouseTracking(true);
+    m_activeUniform = "lambert";
+    m_uniforms << "albedo" << "normals" << "texture" << "texture_lambert"
+               << "p_error" << "shadows" << "red";
+}
+
+void GLWidget::setActiveUniform(QString uniform)
+{
+    //qDebug() << "swapping active uniform "<<m_activeUniform<<" with "<<uniform;
+    if(m_activeUniform == uniform)
+        return;
+
+    m_uniforms.push_back(m_activeUniform);
+    m_activeUniform = uniform;
+    m_uniforms.removeOne(uniform);
+
+    setUniforms();
+}
+
+void GLWidget::setUniforms()
+{
+    shader.program.setUniformValue("projectionMatrix",camera.projection());
+    shader.program.setUniformValue("viewMatrix",camera.view());
+    shader.program.setUniformValue("lightDirection",m_light);
+
+    shader.program.setUniformValue(m_activeUniform.toStdString().c_str(),true);
+    foreach (QString u, m_uniforms) {
+       shader.program.setUniformValue(u.toStdString().c_str(),false);
+    }
 }
 
 
@@ -12,9 +41,9 @@ void GLWidget::initializeGL()
 {
     initializeOpenGLFunctions();
     glClearColor(0.9f,0.9f,1.0f,10.f);
-    shader.compile("../Renderer/shader.vert","../Renderer/shader.frag");
+    shader.compile("../FaceReconstruction/shader.vert","../FaceReconstruction/shader.frag");
 
-    light = QVector3D(0,0,1);
+    m_light = QVector3D(0,0,1);
 
     connect(this,SIGNAL(frameSwapped()),this,SLOT(update()));
     printContext();
@@ -36,35 +65,13 @@ void GLWidget::paintGL()
 
 void GLWidget::renderScene()
 {
-
-    //drawLambert();
     shader.program.bind();
-    shader.program.setUniformValue("projectionMatrix",camera.projection());
-    shader.program.setUniformValue("viewMatrix",camera.view());
-    shader.program.setUniformValue("lightDirection",light);
-
-    shader.program.setUniformValue("disptex",m_drawTexture);
-    shader.program.setUniformValue("disptexnorm",m_drawTextureLambert);
-    shader.program.setUniformValue("dispnorm",m_drawNormals);
-    shader.program.setUniformValue("dispalb",m_drawLambert);
-    shader.program.setUniformValue("dispalbonly",m_drawColors);
-    shader.program.setUniformValue("disperror",m_drawError);
-    shader.program.setUniformValue("dispshadow",m_drawShadows);
-    shader.program.setUniformValue("dispcust",m_drawCustom);
+    setUniforms();
 
     glEnable(GL_DEPTH_TEST);
-
-    //glDepthMask(true);
-    //glDepthFunc(GL_LEQUAL);
-    //  glEnable(GL_CULL_FACE);
-
-
-    //if(m_drawWireframe)
-    //    glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
-    //else
-    //    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
-
     glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+
+    // draw scene
     QMap<QString,Mesh>::iterator it=meshes.begin();
     while(it!=meshes.end())
     {
@@ -75,13 +82,11 @@ void GLWidget::renderScene()
         shader.program.setUniformValue("N",normalMatrix);
         shader.program.setUniformValue("MVP",MVP);
 
-
         it.value().draw(shader);
         it++;
     }
 
-
-    // Draw black outline
+    // Draw blue outline
     if(m_drawWireframe)
     {
         glPolygonOffset(-1.0f, -1.0f);      // Shift depth values
@@ -98,34 +103,14 @@ void GLWidget::renderScene()
         // draw wireframe on top of mesh
         //drawShadows();
 
-        shader.program.setUniformValue("disptex",false);
-        shader.program.setUniformValue("disptexnorm",false);
-        shader.program.setUniformValue("dispnorm",false);
-        shader.program.setUniformValue("dispalb",false);
-        shader.program.setUniformValue("dispalbonly",false);
-        shader.program.setUniformValue("disperror",false);
-        shader.program.setUniformValue("dispshadow",true);
-        shader.program.setUniformValue("dispcust",false);
-        //glEnable(GL_DEPTH_TEST);
-        //glDepthMask(false);
+        QString currentUniform = m_activeUniform;
+        setActiveUniform(QString("shadows"));
 
-        //glPolygonMode(GL_BACK,GL_LINE);
-        //glLineWidth(5);
-        //glEnable( GL_POLYGON_OFFSET_LINE );
-        //glPolygonOffset( -1, -1 );
-        QMap<QString,Mesh>::iterator it2=meshes.begin();
-        while(it2!=meshes.end())
+        it = meshes.begin();
+        while(it!=meshes.end())
         {
-            QMatrix4x4 modelViewMatrix = camera.view() * it2.value().modelMatrix;
-            QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
-            QMatrix4x4 MVP = camera.projection() * modelViewMatrix;
-
-            shader.program.setUniformValue("N",normalMatrix);
-            shader.program.setUniformValue("MVP",MVP);
-
-
-            it2.value().draw(shader);
-            it2++;
+            it.value().draw(shader);
+            it++;
         }
         //glDisable( GL_POLYGON_OFFSET_LINE );
         //drawLambert();
@@ -136,6 +121,9 @@ void GLWidget::renderScene()
         glLineWidth(1.0f);
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
+
+        // set back previous active uniform
+        setActiveUniform(currentUniform);
     }
 }
 
@@ -163,7 +151,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *m)
     if(m->buttons() && m_controlLight)
     {
         QPointF pos = QPointF( m->pos().x() /width*2 -1, 1- m->pos().y()/height*2  );
-        light = QVector3D (pos.x(),pos.y(),sqrt( qMax(1-pos.x()*pos.x()-pos.y()*pos.y(),0.0) ) );
+        m_light = QVector3D (pos.x(),pos.y(),sqrt( qMax(1-pos.x()*pos.x()-pos.y()*pos.y(),0.0) ) );
     }
 
     float dx = (m->x() )/width*2-1;
@@ -172,22 +160,22 @@ void GLWidget::mouseMoveEvent(QMouseEvent *m)
     if (m->buttons() & Qt::LeftButton && !m_controlLight)
     {
         camera = Camera();
-        camera.setZoom(lastFov);
+        camera.setZoom(m_lastFov);
         camera.view().translate(dx,dy,0);
     }
     else if (m->buttons() & Qt::RightButton && !m_controlLight)
     {
         if(!m_mouseLook)
         {
-            lastPos = m->pos();
+            m_lastPos = m->pos();
             m_mouseLook = true;
         }
-        dx = (m->x() -lastPos.x());
-        dy = (m->y() -lastPos.y());
+        dx = (m->x() -m_lastPos.x());
+        dy = (m->y() -m_lastPos.y());
         camera.view().rotate(dx/10.0,QVector3D(0,1,0));
         camera.view().rotate(dy/10.0,QVector3D(1,0,0));
         //camera.setZoom(lastFov);
-        lastPos = m->pos();
+        m_lastPos = m->pos();
     }
     else
     {
@@ -201,11 +189,11 @@ void GLWidget::wheelEvent(QWheelEvent *w)
     float step = 2;
     float fov;
     if(w->delta() < 0)
-        fov = qMin( lastFov + step, (float)120.0);
+        fov = qMin( m_lastFov + step, (float)120.0);
     else
-        fov = qMax( lastFov - step, (float)10.0);
+        fov = qMax( m_lastFov - step, (float)10.0);
     camera.setZoom(fov);
-    lastFov = fov;
+    m_lastFov = fov;
 }
 
 void GLWidget::addMesh(QString meshName, Mesh mesh)
@@ -252,106 +240,9 @@ void GLWidget::controlLight()
     m_controlLight = !m_controlLight;
 }
 
-
-void GLWidget::drawTexture()
-{
-    m_drawTexture = true;
-    m_drawCustom = false;
-    m_drawTextureLambert = false;
-    m_drawNormals = false;
-    m_drawColors = false;
-    m_drawLambert = false;
-    m_drawShadows = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawTextureLambert()
-{
-    m_drawTextureLambert = true;
-   m_drawCustom = false;
-    m_drawTexture = false;
-    m_drawNormals = false;
-    m_drawColors = false;
-    m_drawLambert = false;
-    m_drawShadows = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawNormals()
-{
-    m_drawNormals = true;
-    m_drawCustom = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawColors = false;
-    m_drawLambert = false;
-    m_drawShadows = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawColors()
-{
-    m_drawColors = true;
-   m_drawCustom = false;
-    m_drawNormals = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawLambert = false;
-    m_drawShadows = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawLambert()
-{
-    m_drawLambert = true;
-   m_drawCustom = false;
-    m_drawColors = false;
-    m_drawNormals = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawShadows = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawShadows()
-{
-    m_drawShadows = true;
-   m_drawCustom = false;
-    m_drawLambert = false;
-    m_drawColors = false;
-    m_drawNormals = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawError = false;
-}
-
-void GLWidget::drawError()
-{
-    m_drawError = true;
-    m_drawCustom = false;
-    m_drawLambert = false;
-    m_drawColors = false;
-    m_drawNormals = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawShadows = false;
-}
-
 void GLWidget::drawWireframe()
 {
     m_drawWireframe = !m_drawWireframe;
-}
-
-void GLWidget::drawCustom()
-{
-    m_drawError = false;
-    m_drawCustom = true;
-    m_drawLambert = false;
-    m_drawColors = false;
-    m_drawNormals = false;
-    m_drawTexture = false;
-    m_drawTextureLambert = false;
-    m_drawShadows = false;
 }
 
 void GLWidget::savePic()
@@ -372,36 +263,19 @@ void GLWidget::savePic()
 }
 
 
-QGroupBox* GLWidget::displayMenu()
+QGroupBox* GLWidget::menu()
 {
    QGroupBox *m_menu = new QGroupBox("Display Options");
 
    QPushButton *wireBtm = new QPushButton("wireframe");
    connect(wireBtm,SIGNAL(pressed()),this,SLOT(drawWireframe()));
 
-   QPushButton *texBtm = new QPushButton("texture");
-   connect(texBtm,SIGNAL(pressed()),this,SLOT(drawTexture()));
-
-   QPushButton *texnBtm = new QPushButton("texture+normals");
-   connect(texnBtm,SIGNAL(pressed()),this,SLOT(drawTextureLambert()));
-
-   QPushButton *colBtm = new QPushButton("albedo");
-   connect(colBtm,SIGNAL(pressed()),this,SLOT(drawColors()));
-
-   QPushButton *colnBtm = new QPushButton("albedo+normals");
-   connect(colnBtm,SIGNAL(pressed()),this,SLOT(drawLambert()));
-
-   QPushButton *normBtm = new QPushButton("normals");
-   connect(normBtm,SIGNAL(pressed()),this,SLOT(drawNormals()));
-
-   QPushButton *shadowBtm = new QPushButton("shadows");
-   connect(shadowBtm,SIGNAL(pressed()),this,SLOT(drawShadows()));
-
-   QPushButton *errorBtm = new QPushButton("p-errors");
-   connect(errorBtm,SIGNAL(pressed()),this,SLOT(drawError()));
-
-   QPushButton *customBtm = new QPushButton("red");
-   connect(customBtm,SIGNAL(pressed()),this,SLOT(drawCustom()));
+   QComboBox *comboBox = new QComboBox;
+   connect(comboBox,SIGNAL(currentTextChanged(QString)),this,SLOT(setActiveUniform(QString)));
+   comboBox->addItem(tr(m_activeUniform.toStdString().c_str()));
+   foreach (QString u, m_uniforms) {
+      comboBox->addItem(tr(u.toStdString().c_str()));
+   }
 
    QPushButton *lightBtm = new QPushButton("moveLight");
    connect(lightBtm,SIGNAL(pressed()),this,SLOT(controlLight()));
@@ -412,15 +286,8 @@ QGroupBox* GLWidget::displayMenu()
    QGridLayout *menuLayout = new QGridLayout;
    menuLayout->addWidget(wireBtm,0,0);
    menuLayout->addWidget(lightBtm,0,1);
-   menuLayout->addWidget(texBtm,1,0);
-   menuLayout->addWidget(texnBtm,1,1);
-   menuLayout->addWidget(colBtm,2,0);
-   menuLayout->addWidget(colnBtm,2,1);
-   menuLayout->addWidget(normBtm,3,0);
-   menuLayout->addWidget(shadowBtm,3,1);
-   menuLayout->addWidget(errorBtm,4,0);
-   menuLayout->addWidget(savePicBtm,4,1);
-   menuLayout->addWidget(customBtm,5,0);
+   menuLayout->addWidget(comboBox,1,0);
+   menuLayout->addWidget(savePicBtm,2,0);
 
    m_menu->setLayout(menuLayout);
    m_menu->setSizePolicy(QSizePolicy( QSizePolicy::Fixed,QSizePolicy::Fixed));

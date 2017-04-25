@@ -77,6 +77,10 @@ Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
             maxDimension.setY(vec.y());
     }
 
+    minDimension.setX(0);
+    minDimension.setY(0);
+    maxDimension.setX(640);
+    maxDimension.setY(480);
     for(int i=0; i<5; i++)
         resized_landmarks[i].setX( minDimension.x() );
     resized_landmarks[5].setX( minDimension.x() );
@@ -98,19 +102,23 @@ Mesh::Mesh(const QVector<QVector2D> &landmarks, QString indicesFilename)
     QVector<Vertex> vertices;
     for(int i=0; i<landmarks.size(); i++)
     {
+        if(i==5 || i==11 ||i==17 ||i==26 || i == 30)
+        {
         Vertex v;
         //if(i<28)
         //    v.position = QVector3D(landmarks[i].x(),landmarks[i].y(),2.0*dist);
         //else
         v.position = QVector3D(resized_landmarks[i]);
         v.normal = QVector3D(0,0,1);
-        v.color = QVector3D(0,0,0);
+        v.color = QVector3D(1.0f,0,0);
         v.texCoords = resized_landmarks[i];
         vertices.push_back(v);
+        }
     }
 
-    QVector<unsigned int> indices;
-    QVecOperator::load(indices,"../simpleIndices_corrected");
+    QVector<unsigned int> indices = {0,1,4,1,3,4,2,3,4,2,4,0};
+    //QVector<unsigned int> indices;
+    //QVecOperator::load(indices,"../simpleIndices_original");
 
     m_vertices.swap(vertices);
     m_indices.swap(indices);
@@ -181,6 +189,7 @@ int Mesh::numOfTriangle()
 
 int Mesh::numOfSubdivisions()
 {
+    /*
     int triangs = numOfTriangle();
     int subdiv = 0;
     while(triangs%4 == 0 && triangs != 107)
@@ -189,6 +198,9 @@ int Mesh::numOfSubdivisions()
         subdiv++;
     }
     return subdiv;
+    */
+
+    return m_subdivNumber;
 }
 
 
@@ -197,11 +209,23 @@ void Mesh::setVertices(QVector<Vertex> &vertices)
     m_vertices=vertices;
 }
 
+void Mesh::setIndices(QVector<unsigned int> &indices)
+{
+    m_indices=indices;
+}
+
 
 void Mesh::setTextureCoords(QVector<QVector2D> &texCoords)
 {
     for(int i=0; i<texCoords.size(); i++)
         m_vertices[i].texCoords = texCoords[i];
+}
+
+float Mesh::edgeTolerance() {return m_edgeTolerance;}
+
+void Mesh::setEdgeTolerance(float tol)
+{
+    m_edgeTolerance = tol;
 }
 
 
@@ -257,8 +281,6 @@ void Mesh::createTexture(cv::Mat &img)
     // fill texture with webcam frame
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, img.cols, img.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, img.ptr());
     glBindTexture(GL_TEXTURE_2D, 0);
-
-
 }
 
 void Mesh::clean()
@@ -345,11 +367,18 @@ void Mesh::buildNeighbours()
 
 }
 
-void Mesh::subdivide(int sub)
+void Mesh::subdivide(int subdivNum, QString subdivType)
 {
+    if(subdivType == "ADAPTIVE")
+        subdivideAdaptive(subdivNum);
+    else
+        subdivideNonAdaptive(subdivNum);
+    m_subdivType = subdivType;
+}
 
-
-    for(int i=0; i< sub; i++)
+void Mesh::subdivideAdaptive(int subdivNum)
+{
+    for(int i=0; i< subdivNum; i++)
     {
         // lookup table to keep track of subdivided edges
         QMap<QPair<int,int>, int> table;
@@ -357,7 +386,7 @@ void Mesh::subdivide(int sub)
         // new indices list
         QVector<unsigned int> newTriangles;
 
-        float tol = 0.005;
+        float tol = m_edgeTolerance;
 
         // visit each triangle and subdivide its longest edge
         for(int i=0; i< m_indices.size()/3;  i++)
@@ -375,7 +404,9 @@ void Mesh::subdivide(int sub)
             {
                 Vertex v;
                 v.position = (m_vertices[maxE.first].position + m_vertices[maxE.second].position)/2.0;
+                v.normal = (m_vertices[maxE.first].normal + m_vertices[maxE.second].normal)/2.0;
                 v.texCoords = (m_vertices[maxE.first].texCoords + m_vertices[maxE.second].texCoords)/2.0;
+                v.color = (m_vertices[maxE.first].color + m_vertices[maxE.second].color)/2.0;
                 // register edge subdivision
                 table[QPair<int,int>(maxE.first,maxE.second)] = m_vertices.size();
                 table[QPair<int,int>(maxE.second,maxE.first)] = m_vertices.size();
@@ -429,6 +460,7 @@ void Mesh::subdivide(int sub)
         // swap new triangles with older ones
         m_indices.swap(newTriangles);
     }
+    m_subdivNumber = subdivNum;
 }
 
 void Mesh::bisectTriangle(QPair<int,int> edge,
@@ -529,7 +561,9 @@ void Mesh::subdivideNonAdaptive(int subdivNumber)
             {
                 Vertex v;
                 v.position = (m_vertices[idx0].position + m_vertices[idx1].position)/2.0;
+                v.normal = (m_vertices[idx0].normal + m_vertices[idx1].normal)/2.0;
                 v.texCoords = (m_vertices[idx0].texCoords + m_vertices[idx1].texCoords)/2.0;
+                v.color = (m_vertices[idx0].color + m_vertices[idx1].color)/2.0;
                 table[QPair<int,int>(idx0,idx1)] = m_vertices.size();
                 table[QPair<int,int>(idx1,idx0)] = m_vertices.size();
                 m_vertices.push_back(v);
@@ -538,7 +572,9 @@ void Mesh::subdivideNonAdaptive(int subdivNumber)
             {
                 Vertex v;
                 v.position = (m_vertices[idx0].position + m_vertices[idx2].position)/2.0;
+                v.normal = (m_vertices[idx0].normal + m_vertices[idx2].normal)/2.0;
                 v.texCoords = (m_vertices[idx0].texCoords + m_vertices[idx2].texCoords)/2.0;
+                v.color = (m_vertices[idx0].color + m_vertices[idx2].color)/2.0;
                 table[QPair<int,int>(idx0,idx2)] = m_vertices.size();
                 table[QPair<int,int>(idx2,idx0)] = m_vertices.size();
                 m_vertices.push_back(v);
@@ -547,7 +583,9 @@ void Mesh::subdivideNonAdaptive(int subdivNumber)
             {
                 Vertex v;
                 v.position = (m_vertices[idx1].position + m_vertices[idx2].position)/2.0;
+                v.normal = (m_vertices[idx1].normal + m_vertices[idx2].normal)/2.0;
                 v.texCoords = (m_vertices[idx1].texCoords + m_vertices[idx2].texCoords)/2.0;
+                v.color = (m_vertices[idx1].color + m_vertices[idx2].color)/2.0;
                 table[QPair<int,int>(idx1,idx2)] = m_vertices.size();
                 table[QPair<int,int>(idx2,idx1)] = m_vertices.size();
                 m_vertices.push_back(v);
@@ -567,7 +605,7 @@ void Mesh::subdivideNonAdaptive(int subdivNumber)
         // swap new triangles with older ones
         m_indices.swap(newTriangles);
     }
-
+    m_subdivNumber = subdivNumber;
 }
 
 

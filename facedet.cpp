@@ -1,4 +1,4 @@
-#include "facedet.h"
+#include "facedetector.h"
 
 using namespace dlib;
 

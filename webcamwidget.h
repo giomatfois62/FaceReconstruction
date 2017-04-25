@@ -9,7 +9,7 @@
 
 #include "opencv2/opencv.hpp"
 #include "glwidget.h"
-#include "facedet.h"
+#include "facedetector.h"
 
 class QTimer;
 

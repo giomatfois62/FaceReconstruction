@@ -10,7 +10,7 @@
 //#include "fastmarchingwidget.h"
 #include "fastm.h"
 #include "pstereowidget.h"
-#include "facedet.h"
+#include "facedetector.h"
 #include "facedatabasewidget.h"
 #include "mesh.h"
 #include "shapefs.h"

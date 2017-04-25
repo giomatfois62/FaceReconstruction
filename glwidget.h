@@ -32,44 +32,35 @@ public:
     void addMesh(QString meshName, Mesh mesh);
     void renderScene();
 
-    QGroupBox *displayMenu();
+    QString activeUniform() {return m_activeUniform;}
+    QList<QString> uniforms() {return m_uniforms;}
+
+
+    QGroupBox *menu();
 
     Shader shader;
     Camera camera;
     QMap<QString,Mesh> meshes;
 
-    QVector3D light;
-
 public slots:
+    void setActiveUniform(QString uniform);
+    void setUniforms();
     void controlLight();
-    void drawTexture();
-    void drawTextureLambert();
-    void drawNormals();
-    void drawColors();
-    void drawLambert();
-    void drawShadows();
-    void drawError();
     void drawWireframe();
-    void drawCustom();
     void savePic();
 
 private:
     void printContext();
 
+    QString m_activeUniform;
+    QList<QString> m_uniforms;
+
+    bool m_drawWireframe = false;
     bool m_controlLight = false;
     bool m_mouseLook = false;
-    QPoint lastPos =QPoint(0,0);
-    float lastFov = 90;
-
-    bool m_drawTexture = true;
-    bool m_drawTextureLambert = false;
-    bool m_drawNormals = false;
-    bool m_drawColors = false;
-    bool m_drawLambert = true;
-    bool m_drawShadows = false;
-    bool m_drawError = false;
-    bool m_drawWireframe = false;
-    bool m_drawCustom = false;
+    QPoint m_lastPos = QPoint(0,0);
+    float m_lastFov = 90;
+    QVector3D m_light;
 };
 
 #endif // GLWIDGET_H

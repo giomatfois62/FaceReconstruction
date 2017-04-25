@@ -4,7 +4,7 @@ Fastm::Fastm(Mesh &pmesh, QWidget *parent): QWidget(parent)
 {
     mesh = &pmesh;
     m_lambda = 2;
-    m_initialPoint = 30;
+    m_initialPoint = 4;
 }
 
 void Fastm::execFM()
@@ -53,6 +53,8 @@ void Fastm::execFM()
         long double dx = v.position.x() - v0.position.x();
         long double dy = v.position.y() - v0.position.y();
         vertices[i].position.setZ( -(vertices[i].position.z() - m_lambda*(dx*dx+dy*dy)));
+        if(vertices[i].position[2] > 0)
+            vertices[i].position.setZ(0);
     }
 
     // set new depths in mesh and exit

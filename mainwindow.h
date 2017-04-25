@@ -15,7 +15,7 @@
 #include "mesh.h"
 #include "facebuilder.h"
 #include "facedatabase.h"
-#include "facedet.h"
+#include "facedetector.h"
 #include "mainmenu.h"
 
 class QTimer;

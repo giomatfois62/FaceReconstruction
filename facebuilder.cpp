@@ -42,7 +42,7 @@ void Facebuilder::initMenu()
     menuLayout->addItem(vla,0,0);
     //menuLayout->addWidget(fastmarch->menu(),0,2);
     //menuLayout->addWidget(database->menu(),0,0);
-    menuLayout->addWidget(meshViewer->displayMenu(),0,3);
+    menuLayout->addWidget(meshViewer->menu(),0,3);
     qDebug() << "menu added";
 
     QPushButton *saveBtm = new QPushButton("save");

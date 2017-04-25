@@ -51,6 +51,10 @@ QGroupBox* Shapefs::menu()
     QPushButton *psBtm = new QPushButton("execPS");
     connect(psBtm,SIGNAL(pressed()),this,SLOT(execPhotometric()));
 
+    QPushButton *psBtm_SVD = new QPushButton("execPS_SVD");
+    connect(psBtm_SVD,SIGNAL(pressed()),this,SLOT(execPhotometricSVD()));
+
+
     QSpinBox *maxAzimuthSpin = new QSpinBox;
     connect(maxAzimuthSpin,SIGNAL(valueChanged(int)),this,SLOT(setMaxAzimuth(int)));
     maxAzimuthSpin->setValue(maxAzimuth());
@@ -76,6 +80,7 @@ QGroupBox* Shapefs::menu()
     form3->addRow(imgLabel,minImageNumberSpin);
 
     QDoubleSpinBox *thresholdSpin = new QDoubleSpinBox;
+    thresholdSpin->setDecimals(4);
     connect(thresholdSpin,SIGNAL(valueChanged(double)),this,SLOT(setThreshold(double)));
     thresholdSpin->setValue(threshold());
     QLabel *threshLabel = new QLabel;
@@ -97,6 +102,7 @@ QGroupBox* Shapefs::menu()
 
     QGridLayout *layout = new QGridLayout;
     layout->addWidget(psBtm,0,0);
+    layout->addWidget(psBtm_SVD,5,0);
     layout->addItem(form1,1,0);
     layout->addItem(form2,2,0);
     layout->addItem(form3,3,0);
@@ -141,6 +147,21 @@ void Shapefs::execPhotometric()
     qDebug() << "images data loaded! starting photometric stereo...";
     // execute photometric stereo
     execPS(intensities,lightDirections);
+    emit meshUpdated();
+}
+
+void Shapefs::execPhotometricSVD()
+{
+    if(!db->imageList().size())
+        return;
+    // load image intensities & light directions from database
+    qDebug() << "loading data for photometric stereo...";
+    QVector<QVector<float> > intensities;
+    QVector<QVector3D> lightDirections;
+    loadSfsData(intensities,lightDirections);
+    qDebug() << "images data loaded! starting photometric stereo with SVD...";
+    // execute photometric stereo
+    execPS_SVD(intensities,lightDirections);
     emit meshUpdated();
 }
 
@@ -212,6 +233,7 @@ void Shapefs::estimateLightDirection(cv::Mat &img, QVector4D &light)
 void Shapefs::loadSfsData(QVector<QVector<float> > &intensities, QVector<QVector3D> &lightDirections)
 {
     // build a dummy mesh with the first frame of the database to get textureCoords
+    qDebug() << "loading data from database "<<db->name();
     QString framesPath = "../Database/"+db->name()+"/";
     QString firstFramePath = framesPath+db->imageList()[0];
     cv::Mat firstFrame = cv::imread(firstFramePath.toUtf8().constData(),true);
@@ -224,8 +246,13 @@ void Shapefs::loadSfsData(QVector<QVector<float> > &intensities, QVector<QVector
         //qDebug() << mesh->vertices().size()<<" "<<mesh->vertices()[0].position;
     }
     else
-    {
-        //texmesh.subdivide(mesh->numOfSubdivisions());
+    {      
+        //Mesh texmesh = detector->buildMesh(firstFrame);
+        //texmesh.setEdgeTolerance(mesh->edgeTolerance());
+        //texmesh.subdivide(mesh->numOfSubdivisions(),mesh->subdivType());
+        //QVector<QVector2D> texCoords = texmesh.texCoords();
+        //mesh->setTextureCoords(texCoords);
+        //qDebug() << "texCoords swapped!";
     }
     intensities.resize(mesh->vertices().size());
 
@@ -345,6 +372,9 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
                 albedo = 1;
             normal.normalize();
 
+            if(normal == QVector3D(0,0,0))
+                normal = QVector3D(0,0,1);
+
             float perror=0;
             for(int j=0; j<errorMap.keys().size(); j++)
             {
@@ -352,7 +382,7 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
             }
             perror /= errorMap.keys().size();
 
-            vertices[i].color=QVector3D(albedo, newIntensities.size()/float(intensities[i].size()), perror/.2);
+            vertices[i].color=QVector3D(albedo, newIntensities.size()/float(intensities[i].size()), perror);
             vertices[i].normal=normal;
 
         }
@@ -364,6 +394,153 @@ void Shapefs::execPS(QVector<QVector<float> > &intensities, QVector<QVector3D> &
 
     mesh->setVertices(vertices);
 }
+
+void Shapefs::execPS_SVD(QVector<QVector<float> > &intensities, QVector<QVector3D> &lightDirections)
+{
+    if(!intensities.size())
+        return;
+
+    cv::Mat A = cv::Mat::zeros(intensities[0].size(),intensities.size(),CV_32F);
+
+    for(int i=0; i< intensities.size(); i++)
+        for(int j=0; j<intensities[0].size(); j++)
+            A.at<float>(j,i) = intensities[i][j];
+
+    cv::SVD svd;
+    svd(A); //,cv::SVD::Flags::FULL_UV);
+    qDebug() << "SVD computed!! U rows:" << svd.u.rows << " cols:"<<svd.u.cols;
+    qDebug() << "SVD computed!! W rows:" << svd.w.rows << " cols:"<<svd.w.cols;
+    qDebug() << "SVD computed!! Vt rows:" << svd.vt.rows << " cols:"<<svd.vt.cols;
+
+    // restrict SVD to first 4 singular values!
+    // u is 26x4, w is 4x4, vt is 4x145
+    cv::Mat U = svd.u(cv::Range(0,svd.u.rows),cv::Range(0,4));
+    cv::Mat VT = svd.vt(cv::Range(0,4),cv::Range(0,svd.vt.cols));
+    cv::Mat W = cv::Mat(4,4,CV_32F);
+    for(int i=0; i<4; i++)
+        W.at<float>(i,i) = sqrt(svd.w.at<float>(i,0));
+    qDebug() << "Truncated SVD computed!! U rows:" << U.rows << " cols:"<< U.cols;
+    qDebug() << "Truncated SVD computed!! W rows:" << W.rows << " cols:"<< W.cols;
+    qDebug() << "Truncated SVD computed!! VT rows:" << VT.rows << " cols:"<< VT.cols;
+
+    cv::Mat L = U*W;
+    cv::Mat S = W*VT;
+
+    qDebug() << "Shape matrix computed!! rows:" << S.rows << " cols:"<< S.cols;
+
+    // solve for ambiguity A using a template shape (could use the one computed with my approach)
+    //db->loadDatabase(32);
+    //loadSfsData(intensities,lightDirections);
+    execPS(intensities,lightDirections);
+
+    for(int k=0; k<1; k++)
+    {
+    QVector<Vertex> vertices = mesh->vertices();
+    cv::Mat St;
+    S.copyTo(St);
+    for(int i=0; i<vertices.size(); i++)
+    {
+        float albedo = vertices[i].color.x();
+        St.at<float>(0,i) = albedo;
+        St.at<float>(1,i) = albedo*vertices[i].normal.x();
+        St.at<float>(2,i) = albedo*vertices[i].normal.y();
+        St.at<float>(3,i) = albedo*vertices[i].normal.z();
+    }
+
+    if(m_filterType == "p-error")
+    {
+        // select subsect of optimal images for each vertex reconstruction
+        for(int i=0; i<vertices.size(); i++)
+        {
+            cv::Mat imgs = A(cv::Range(0,A.rows),cv::Range(i,i+1));
+            cv::Mat lps = L*(S(cv::Range(0,4),cv::Range(i,i+1)));
+            cv::Mat diff = imgs-lps;
+
+            // compute p-error of the approximated shape on each image
+            float tot_error = 0;
+            QMap<float, unsigned int> errorMap;
+            for(int j=0; j<diff.rows; j++)
+            {
+                float err = diff.at<float>(j,0);
+                tot_error += fabs(err);
+                errorMap.insertMulti(fabs(err),j);
+            }
+            tot_error /= errorMap.values().size();
+            qDebug() << "mean photometric error for vertex "<<i<<": "<<tot_error;
+
+            // discard images with large p-error
+            QMap<float,unsigned int>::iterator it = errorMap.end();
+            while(it!=errorMap.begin() && errorMap.values().size() > m_minImageNumber)
+            {
+                it--;
+
+                //if(it.key() > m_threshold)
+                {
+                    it=errorMap.erase(it);
+                }
+
+                float current_error = 0;
+                int num_keys = errorMap.values().size();
+                for(int j=0; j<num_keys; j++)
+                {
+                    int current_key = errorMap.values().at(j);
+                    float err = errorMap.key(current_key);
+                    current_error += err;
+                }
+                current_error /= num_keys;
+                qDebug() << "current photometric error for vertex "<<i<<": "<<current_error;
+                if(current_error <= m_threshold)
+                   break;
+            }
+
+            // restrict Light,Img matrices to remaining images
+            cv::Mat Lk = cv::Mat(0,4,CV_32F);
+            cv::Mat Mk = cv::Mat(0,1,CV_32F);
+            int new_size = errorMap.values().size();
+            qDebug() << "images chosen for vertex "<<i<<": "<<new_size;
+            for(int j=0; j<new_size; j++)
+            {
+                Lk.push_back(L.row(errorMap.values().at(j)));
+                Mk.push_back(A.at<float>(errorMap.values().at(j),i));
+            }
+
+            // Tikhonov regularization matrix
+            cv::Mat G = cv::Mat::eye(4,4,CV_32F);
+            G.at<float>(0,0) = -1.0;
+
+            // compute new shape for vertex i
+            cv::Mat Si = ( (Lk.t())*Lk + G ).inv()*Lk.t()*Mk;
+            Si.copyTo(S.col(i));
+        }
+    }
+
+    // Recover 4x4 ambiguity using template shape St
+    cv::Mat Amb = St*(S.t())*((S*(S.t())).inv());
+    qDebug() << "Ambiguity recovered!! A rows:"<<Amb.rows<< " cols:"<<Amb.cols;
+    for(int i=0; i<4; i++)
+        for(int j=0; j<4; j++)
+            qDebug() << "A["<<i<<"]"<<"["<<j<<"]="<<Amb.at<float>(i,j);
+    S = Amb*S;
+
+    // exctract normals,albedo from shape matrix S
+    for(int i=0; i< S.cols; i++)
+    {
+        float albedo = S.at<float>(0,i);
+        //qDebug() << "albedo for vertex "<<i<< " = "<< albedo ;
+        vertices[i].color=QVector3D(albedo,albedo,albedo);
+
+        QVector3D normal(S.at<float>(1,i),S.at<float>(2,i),S.at<float>(3,i));
+
+        normal.normalize();
+        if(normal == QVector3D(0,0,0))
+            normal.setZ(1.0);
+        vertices[i].normal=normal;
+    }
+
+    mesh->setVertices(vertices);
+    }
+}
+
 
 QMatrix3x3 Shapefs::buildSystemMatrix(QVector<QVector3D> &lightsVec)
 {
@@ -575,7 +752,7 @@ QMap<float, unsigned int> Shapefs::computeErrorMap(QVector3D &normal, QVector<QV
     {
         float I = intensities[i];
         float Ivirtual = qMax(QVector3D::dotProduct(normal,lightDirections[i]),0.0f);
-        float error = fabs(I-Ivirtual)/255.0;
+        float error = fabs(I-Ivirtual);
         errorMap.insertMulti(error,i);
     }
     return errorMap;

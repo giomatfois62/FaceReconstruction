@@ -65,6 +65,7 @@ void WebcamWidget::createCanvas(int imgW, int imgH)
 
     Mesh canvas(vertices,indices);
     this->addMesh("canvas",canvas);
+    this->setActiveUniform("texture");
 }
 
 
@@ -74,6 +75,7 @@ void WebcamWidget::setImage(cv::Mat &img)
     createCanvas(img.cols,img.rows);
 
     this->meshes["canvas"].createTexture(img);
+    emit frameUpdated();
 }
 
 void WebcamWidget::setImage(QString imageName)
@@ -85,6 +87,7 @@ void WebcamWidget::setImage(QString imageName)
     createCanvas(m_frame.cols,m_frame.rows);
 
     this->meshes["canvas"].createTexture(m_frame);
+    emit frameUpdated();
 }
 
 void WebcamWidget::drawLandmarks()
@@ -96,15 +99,15 @@ void WebcamWidget::drawLandmarks()
     //saveDelaunay(m_frame,landmarks);
     //saveTexCoords(m_frame,landmarks);
 
-    //cv::Mat temp;
-    //m_frame.copyTo(temp);
+    cv::Mat temp;
+    m_frame.copyTo(temp);
     cv::Scalar color = {0,255,0};
     for(int i=0; i<landmarks.size(); i++)
     {
         cv::Point p = cv::Point(landmarks[i].x(),landmarks[i].y());
-        cv::circle(m_frame,p,2,color,2);
+        cv::circle(temp,p,2,color,2);
     }
-    //setImage(temp);
+    setImage(temp);
 }
 
 void WebcamWidget::loadImage()
@@ -132,8 +135,7 @@ void WebcamWidget::renderWebcam()
 {
     cap >> m_frame;
     drawLandmarks();
-    setImage(m_frame);
-
+    //setImage(m_frame);
 }
 
 void WebcamWidget::saveTexCoords(cv::Mat &frame, QVector<QVector2D> &imagePoints)

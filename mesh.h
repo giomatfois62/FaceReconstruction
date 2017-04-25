@@ -66,12 +66,17 @@ public:
     void setVertices(QVector<Vertex> &vertices);
     void setIndices(QVector<unsigned int> &indices);
     void setTextureCoords(QVector<QVector2D> &texCoords);
+    void setEdgeTolerance(float tol);
+    void setGridType(QString val) {m_gridType =val;}
+    float edgeTolerance();
+    QString subdivType() {return m_subdivType;}
 
     void load(QString fileName);
     void save(QString fileName);
 
     // transformations
-    void subdivide(int sub);
+    void subdivide(int sub,QString subdivType = "ADAPTIVE");
+    void subdivideAdaptive(int subdivNumber);
     void subdivideNonAdaptive(int subdivNumber);
     void scaleToUnity();
     void scaleTextureCoords(int w,int h);
@@ -108,6 +113,10 @@ private:
     QVector<QList<unsigned int>> m_neighbours;
 
     Texture texture;
+    int m_subdivNumber = 0;
+    float m_edgeTolerance = 0.005;
+    QString m_subdivType = "ADAPTIVE";
+    QString m_gridType = "IMAGE";
 };
 
 #endif // MESH_H
